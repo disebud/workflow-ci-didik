@@ -28,10 +28,12 @@ jobs:
 
       - name: Set MLflow Tracking URI
         run: echo "MLFLOW_TRACKING_URI=./mlruns" >> $GITHUB_ENV
-
+      
       - name: Run mlflow project
         run: |
           cd MLProject
+          # Kita pastikan mlruns bersih sebelum running di CI
+          rm -rf mlruns
           mlflow run . --env-manager=local
 
       - name: Get latest MLflow run id
