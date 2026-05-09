@@ -1,0 +1,63 @@
+name: Model Retraining Workflow Advanced
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  train-and-log:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up job
+        run: echo "Setting up the CI job for Advanced Level..."
+
+      - name: Run actions/checkout@v3
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.12.7
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12.7'
+
+      - name: Install dependencies
+        run: pip install mlflow==2.19.0 pandas scikit-learn
+
+      - name: Set MLflow Tracking URI
+        run: echo "MLFLOW_TRACKING_URI=./mlruns" >> $GITHUB_ENV
+
+      - name: Run mlflow project
+        run: |
+          cd MLProject
+          mlflow run . --no-conda
+
+      - name: Get latest MLflow run id
+        id: get_run_id
+        run: |
+          cd MLProject
+          # Mengambil folder ID terbaru di dalam mlruns/0
+          RUN_ID=$(ls -t mlruns/0 | grep -v meta.yaml | head -n 1)
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+          echo "Model berhasil dilatih dengan Run ID: $RUN_ID"
+
+      - name: Build Docker Model
+        run: |
+          cd MLProject
+          # Membungkus model MLflow menjadi Docker Image
+          mlflow models build-docker -m "mlruns/0/${{ env.RUN_ID }}/artifacts/model" -n ${{ secrets.DOCKER_USERNAME }}/ai_impact_model:latest
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/ai_impact_model:latest
+
+      - name: Complete job
+        run: echo "Workflow Bintang 5 Selesai!"
